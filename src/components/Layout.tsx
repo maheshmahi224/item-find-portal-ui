@@ -5,7 +5,7 @@ import AddItemForm from "./AddItemForm";
 import ItemsList from "./ItemsList";
 import AdminPanel from "./AdminPanel";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bell, Search } from "lucide-react";
+import { Bell, Heart, Search } from "lucide-react";
 
 export function Layout() {
   const [activeTab, setActiveTab] = useState<string>("found-items");
@@ -17,10 +17,12 @@ export function Layout() {
         <div className="container mx-auto max-w-7xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="bg-pastel-blue p-2 rounded-full">
-                <Bell className="h-5 w-5 text-primary" />
-              </div>
-              <h1 className="text-xl md:text-2xl font-bold">Campus Lost & Found</h1>
+              <img 
+                src="/lovable-uploads/95885624-315e-478d-aec6-fb6bf0fb4b5c.png" 
+                alt="Scient Institute of Technology" 
+                className="h-10 md:h-12" 
+              />
+              <h1 className="text-xl md:text-2xl font-bold">findit@scient</h1>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground hidden md:inline-block">
@@ -96,13 +98,9 @@ export function Layout() {
         <div className="container mx-auto max-w-7xl px-4 md:px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Campus Lost & Found Portal. All rights reserved.
+              © {new Date().getFullYear()} findit@scient. All rights reserved. 
+              <span className="ml-2 uppercase">CRAFTED WITH <Heart className="inline h-4 w-4 text-red-500 fill-red-500" /> BY MAHESH (AIML)</span>
             </p>
-            <div className="flex items-center gap-4">
-              <a href="#" className="text-sm text-primary hover:underline">Terms of Service</a>
-              <a href="#" className="text-sm text-primary hover:underline">Privacy Policy</a>
-              <a href="#" className="text-sm text-primary hover:underline">Contact Us</a>
-            </div>
           </div>
         </div>
       </footer>

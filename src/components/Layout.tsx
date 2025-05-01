@@ -3,9 +3,8 @@ import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AddItemForm from "./AddItemForm";
 import ItemsList from "./ItemsList";
-import AdminPanel from "./AdminPanel";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bell, Heart, Search } from "lucide-react";
+import { Heart } from "lucide-react";
 
 export function Layout() {
   const [activeTab, setActiveTab] = useState<string>("found-items");
@@ -16,13 +15,13 @@ export function Layout() {
       <header className="px-4 py-6 md:px-6 md:py-8 bg-white shadow-sm">
         <div className="container mx-auto max-w-7xl">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <img 
-                src="/lovable-uploads/95885624-315e-478d-aec6-fb6bf0fb4b5c.png" 
+                src="/lovable-uploads/601e0f8b-982d-4c2c-a5f1-86e52adccf6e.png" 
                 alt="Scient Institute of Technology" 
                 className="h-10 md:h-12" 
               />
-              <h1 className="text-xl md:text-2xl font-bold">findit@scient</h1>
+              <h1 className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-600 to-blue-600">findit@scient</h1>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground hidden md:inline-block">
@@ -37,15 +36,12 @@ export function Layout() {
       <main className="container mx-auto max-w-7xl px-4 pt-8 pb-16 md:px-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
           <div className="flex justify-center">
-            <TabsList className="grid w-full max-w-lg grid-cols-3">
+            <TabsList className="grid w-full max-w-lg grid-cols-2">
               <TabsTrigger value="found-items" className="text-sm md:text-base">
                 Found Items
               </TabsTrigger>
               <TabsTrigger value="add-item" className="text-sm md:text-base">
                 Report Found Item
-              </TabsTrigger>
-              <TabsTrigger value="admin" className="text-sm md:text-base">
-                Admin
               </TabsTrigger>
             </TabsList>
           </div>
@@ -75,19 +71,6 @@ export function Layout() {
                 </p>
               </div>
               <AddItemForm />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="admin" className="focus-visible:outline-none focus-visible:ring-0">
-            <div className="space-y-4">
-              <div className="text-center mb-8">
-                <h2 className="text-2xl md:text-3xl font-bold mb-2">Admin Portal</h2>
-                <p className="text-muted-foreground max-w-2xl mx-auto">
-                  Manage reported items, review claims, and maintain the lost and found system.
-                  Requires admin authentication.
-                </p>
-              </div>
-              <AdminPanel />
             </div>
           </TabsContent>
         </Tabs>

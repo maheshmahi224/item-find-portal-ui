@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -95,7 +94,7 @@ export function AddItemForm() {
       return;
     }
     
-    if (!itemName || !location || !department || !founderName) {
+    if (!itemName || !location || !department || !founderName || !contactInfo) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -193,7 +192,7 @@ export function AddItemForm() {
           type="submit" 
           onClick={handleSubmit}
           className="btn-hover"
-          disabled={isProcessing || !image || !itemName || !location || !department || !founderName}
+          disabled={isProcessing || !image || !itemName || !location || !department || !founderName || !contactInfo}
         >
           Submit
         </Button>

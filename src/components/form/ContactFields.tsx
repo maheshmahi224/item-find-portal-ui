@@ -30,12 +30,13 @@ export function ContactFields({
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="contactInfo">Contact Information</Label>
+        <Label htmlFor="contactInfo">Contact Information*</Label>
         <Input
           id="contactInfo"
-          placeholder="Email or phone number (optional)"
+          placeholder="Email or phone number"
           value={contactInfo}
           onChange={(e) => setContactInfo(e.target.value)}
+          required
         />
       </div>
     </>

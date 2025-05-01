@@ -1,44 +1,21 @@
 
 import React, { useState, useEffect } from "react";
-import { ImageDropzone } from "./ImageDropzone";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { FoundItem, ItemCategory } from "@/types";
 import { useLostFound } from "@/context/LostFoundContext";
 import { detectItemCategory, getItemNameSuggestions, getDescriptionSuggestions } from "@/utils/ai-utils";
 
-// Mock department data
-const departments = [
-  { id: "cs", name: "Computer Science" },
-  { id: "eng", name: "Engineering" },
-  { id: "arts", name: "Arts & Humanities" },
-  { id: "sci", name: "Science" },
-  { id: "bus", name: "Business" },
-  { id: "med", name: "Medical" },
-  { id: "lib", name: "Library" },
-  { id: "cafe", name: "Cafeteria" },
-  { id: "admin", name: "Administration" },
-  { id: "other", name: "Other" },
-];
+// Import form components
+import { FormImageUpload } from "./form/FormImageUpload";
+import { ItemInfoFields } from "./form/ItemInfoFields";
+import { LocationFields } from "./form/LocationFields";
+import { ContactFields } from "./form/ContactFields";
+import { CategorySelect } from "./form/CategorySelect";
 
-// Mock location data
-const locations = [
-  { id: "lib", name: "Library" },
-  { id: "cafe", name: "Cafeteria" },
-  { id: "lobby", name: "Main Lobby" },
-  { id: "gym", name: "Gymnasium" },
-  { id: "lab", name: "Laboratories" },
-  { id: "cls", name: "Classrooms" },
-  { id: "park", name: "Parking Lot" },
-  { id: "dorm", name: "Dormitories" },
-  { id: "field", name: "Sports Field" },
-  { id: "other", name: "Other" },
-];
+// Import mock data
+import { departments, locations } from "@/data/formOptions";
 
 export function AddItemForm() {
   const [image, setImage] = useState<File | null>(null);
@@ -166,162 +143,46 @@ export function AddItemForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-1">
-            <Label htmlFor="image">Item Image</Label>
-            <ImageDropzone 
-              onImageChange={setImage} 
-              value={image}
-              className="mt-1"
-            />
-            {isProcessing && (
-              <p className="text-sm text-muted-foreground animate-pulse-light">
-                Processing image with AI...
-              </p>
-            )}
-          </div>
+          <FormImageUpload 
+            image={image}
+            setImage={setImage}
+            isProcessing={isProcessing}
+            category={category}
+          />
 
           <div className="space-y-4">
-            <div className="space-y-1">
-              <Label htmlFor="itemName">Item Name*</Label>
-              <Input
-                id="itemName"
-                placeholder="What did you find?"
-                value={itemName}
-                onChange={(e) => setItemName(e.target.value)}
-                required
-              />
-              {nameSuggestions.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <p className="text-sm text-muted-foreground w-full">Suggestions:</p>
-                  {nameSuggestions.map((suggestion, idx) => (
-                    <Button
-                      key={idx}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => applySuggestion(suggestion, "name")}
-                    >
-                      {suggestion}
-                    </Button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ItemInfoFields
+              itemName={itemName}
+              setItemName={setItemName}
+              itemDescription={itemDescription}
+              setItemDescription={setItemDescription}
+              nameSuggestions={nameSuggestions}
+              descriptionSuggestions={descriptionSuggestions}
+              applySuggestion={applySuggestion}
+            />
 
-            <div className="space-y-1">
-              <Label htmlFor="itemDescription">Description</Label>
-              <Textarea
-                id="itemDescription"
-                placeholder="Describe the item (color, condition, etc.)"
-                value={itemDescription}
-                onChange={(e) => setItemDescription(e.target.value)}
-                className="min-h-[100px]"
-              />
-              {descriptionSuggestions.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <p className="text-sm text-muted-foreground w-full">Suggestions:</p>
-                  {descriptionSuggestions.map((suggestion, idx) => (
-                    <Button
-                      key={idx}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => applySuggestion(suggestion, "description")}
-                    >
-                      {suggestion}
-                    </Button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <LocationFields
+              location={location}
+              setLocation={setLocation}
+              department={department}
+              setDepartment={setDepartment}
+              locations={locations}
+              departments={departments}
+            />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label htmlFor="location">Location*</Label>
-                <Select 
-                  value={location} 
-                  onValueChange={setLocation}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Where was it found?" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.map((loc) => (
-                      <SelectItem key={loc.id} value={loc.name}>
-                        {loc.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="department">Department*</Label>
-                <Select 
-                  value={department} 
-                  onValueChange={setDepartment}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departments.map((dept) => (
-                      <SelectItem key={dept.id} value={dept.name}>
-                        {dept.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="founderName">Your Name*</Label>
-              <Input
-                id="founderName"
-                placeholder="Who found this item?"
-                value={founderName}
-                onChange={(e) => setFounderName(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="contactInfo">Contact Information</Label>
-              <Input
-                id="contactInfo"
-                placeholder="Email or phone number (optional)"
-                value={contactInfo}
-                onChange={(e) => setContactInfo(e.target.value)}
-              />
-            </div>
+            <ContactFields
+              founderName={founderName}
+              setFounderName={setFounderName}
+              contactInfo={contactInfo}
+              setContactInfo={setContactInfo}
+            />
           </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="category">Category</Label>
-            <Select 
-              value={category} 
-              onValueChange={(val) => setCategory(val as ItemCategory)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.values(ItemCategory).map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground mt-1">
-              {image ? "Category automatically detected from image" : "Category will be detected when you upload an image"}
-            </p>
-          </div>
+          <CategorySelect
+            category={category}
+            setCategory={setCategory}
+            hasImage={!!image}
+          />
         </form>
       </CardContent>
       <CardFooter className="flex justify-end space-x-4">

@@ -74,6 +74,42 @@ export const getDescriptionSuggestions = async (
       `Multiple ${itemName} on ring`,
       `${itemName} with car remote`,
     ],
+    [ItemCategory.Jewelry]: [
+      `Gold ${itemName}`,
+      `Silver ${itemName}`,
+      `${itemName} with gemstones`,
+      `Antique-looking ${itemName}`,
+    ],
+    [ItemCategory.Electronics]: [
+      `New ${itemName}`,
+      `${itemName} with charging cable`,
+      `${itemName} in original packaging`,
+      `${itemName} in good working condition`,
+    ],
+    [ItemCategory.Clothing]: [
+      `Black ${itemName}`,
+      `Blue ${itemName}`,
+      `${itemName} size medium`,
+      `New ${itemName} with tags`,
+    ],
+    [ItemCategory.Book]: [
+      `Hardcover ${itemName}`,
+      `${itemName} with highlighted pages`,
+      `${itemName} with bookmarks`,
+      `New ${itemName} in good condition`,
+    ],
+    [ItemCategory.ID]: [
+      `${itemName} in card holder`,
+      `${itemName} with lanyard`,
+      `${itemName} issued in 2023`,
+      `Expired ${itemName}`,
+    ],
+    [ItemCategory.Bag]: [
+      `Black ${itemName}`,
+      `${itemName} with multiple pockets`,
+      `${itemName} with laptop compartment`,
+      `${itemName} with personal items inside`,
+    ],
     [ItemCategory.Other]: [
       `${itemName} in good condition`,
       `Slightly used ${itemName}`,

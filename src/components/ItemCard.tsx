@@ -7,8 +7,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useLostFound } from "@/context/LostFoundContext";
-import { Clock, Trash } from "lucide-react";
+import { Clock, Trash, Share } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { toast } from "sonner";
 
 interface ItemCardProps {
   item: FoundItem;
@@ -84,15 +86,60 @@ export function ItemCard({ item }: ItemCardProps) {
     }
     return null;
   };
+  
+  // Share functionality
+  const shareItem = (platform: 'whatsapp' | 'telegram' | 'email') => {
+    const itemDetails = `
+      Found Item: ${item.name}
+      Description: ${item.description || 'No description provided'}
+      Category: ${item.category}
+      Location: ${item.location}
+      Department: ${item.department}
+      Found by: ${item.founderName}
+      Contact: ${item.contactInfo || 'No contact provided'}
+      Date Found: ${formatDate(item.createdAt)}
+    `;
+    
+    let shareUrl = '';
+    
+    switch (platform) {
+      case 'whatsapp':
+        shareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(itemDetails)}`;
+        break;
+      case 'telegram':
+        shareUrl = `https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(itemDetails)}`;
+        break;
+      case 'email':
+        shareUrl = `mailto:?subject=Found Item: ${encodeURIComponent(item.name)}&body=${encodeURIComponent(itemDetails)}`;
+        break;
+    }
+    
+    if (shareUrl) {
+      window.open(shareUrl, '_blank');
+    }
+    
+    toast.success(`Sharing item via ${platform}`);
+  };
+
+  const cardOpacityClass = item.claimed ? "opacity-70" : "opacity-100";
 
   return (
-    <Card className="overflow-hidden card-hover h-full flex flex-col">
-      <div className="aspect-square overflow-hidden">
+    <Card className={`overflow-hidden card-hover h-full flex flex-col ${cardOpacityClass} transition-opacity`}>
+      <div className="aspect-square overflow-hidden relative">
         <img 
           src={item.imageUrl} 
           alt={item.name} 
           className="w-full h-full object-cover"
+          loading="lazy"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = '/placeholder.svg';
+          }}
         />
+        {item.claimed && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+            <span className="text-white font-bold text-lg uppercase tracking-wider">Claimed</span>
+          </div>
+        )}
       </div>
       <CardContent className="p-4 flex-grow">
         <div className="flex justify-between items-start mb-2">
@@ -142,6 +189,43 @@ export function ItemCard({ item }: ItemCardProps) {
         
         {!item.claimed ? (
           <div className="flex gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="h-8"
+                >
+                  <Share className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-2">
+                <div className="flex flex-col gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => shareItem('whatsapp')}
+                  >
+                    WhatsApp
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => shareItem('telegram')}
+                  >
+                    Telegram
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => shareItem('email')}
+                  >
+                    Email
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+            
             <Button 
               variant="outline" 
               size="sm"
@@ -185,7 +269,45 @@ export function ItemCard({ item }: ItemCardProps) {
             </Dialog>
           </div>
         ) : (
-          <span className="text-xs text-muted-foreground font-medium">CLAIMED</span>
+          <div className="flex gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="h-8"
+                >
+                  <Share className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-2">
+                <div className="flex flex-col gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => shareItem('whatsapp')}
+                  >
+                    WhatsApp
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => shareItem('telegram')}
+                  >
+                    Telegram
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => shareItem('email')}
+                  >
+                    Email
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+            <span className="text-xs text-muted-foreground font-medium">CLAIMED</span>
+          </div>
         )}
       </CardFooter>
     </Card>

@@ -10,7 +10,7 @@ const initialItems: FoundItem[] = [
     name: "iPhone 13",
     description: "Black iPhone 13 with a cracked screen protector",
     location: "Library",
-    department: "Computer Science",
+    department: "Computer Science and Engineering",
     founderName: "John Doe",
     contactInfo: "john.doe@example.com",
     imageUrl: "/placeholder.svg",
@@ -23,7 +23,7 @@ const initialItems: FoundItem[] = [
     name: "Blue Wallet",
     description: "A blue leather wallet with some cash inside",
     location: "Cafeteria",
-    department: "Student Services",
+    department: "Electronics and Electrical Engineering",
     founderName: "Jane Smith",
     contactInfo: "jane.smith@example.com",
     imageUrl: "/placeholder.svg",
@@ -36,7 +36,7 @@ const initialItems: FoundItem[] = [
     name: "Casio Watch",
     description: "Black Casio digital watch with silver trim",
     location: "Gymnasium",
-    department: "Physical Education",
+    department: "H&S Department",
     founderName: "Mike Johnson",
     contactInfo: "mike.johnson@example.com",
     imageUrl: "/placeholder.svg",
@@ -67,8 +67,19 @@ export const useLostFound = () => {
 export const LostFoundProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<FoundItem[]>([]);
 
-  // Load items on component mount
+  // Load items on component mount and set up polling for real-time sync
   useEffect(() => {
+    loadItems();
+    
+    // Set up polling for real-time updates (every 30 seconds)
+    const pollingInterval = setInterval(() => {
+      loadItems();
+    }, 30000);
+    
+    return () => clearInterval(pollingInterval);
+  }, []);
+  
+  const loadItems = () => {
     try {
       const savedItems = localStorage.getItem("foundItems");
       if (savedItems) {
@@ -77,16 +88,28 @@ export const LostFoundProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           createdAt: new Date(item.createdAt),
           claimedAt: item.claimedAt ? new Date(item.claimedAt) : undefined,
         }));
-        setItems(parsedItems);
+        
+        // Sort items by creation date (newest first)
+        const sortedItems = parsedItems.sort((a: FoundItem, b: FoundItem) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        
+        setItems(sortedItems);
       } else {
-        setItems(initialItems);
-        saveItemsToLocalStorage(initialItems);
+        const sortedInitialItems = [...initialItems].sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setItems(sortedInitialItems);
+        saveItemsToLocalStorage(sortedInitialItems);
       }
     } catch (error) {
       console.error("Error loading items from localStorage:", error);
-      setItems(initialItems);
+      const sortedInitialItems = [...initialItems].sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      setItems(sortedInitialItems);
     }
-  }, []);
+  };
 
   // Auto-delete items older than 3 days
   useEffect(() => {
@@ -129,6 +152,7 @@ export const LostFoundProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       claimed: false,
     };
     
+    // Add new item at the beginning of the array (newest first)
     const updatedItems = [newItem, ...items];
     setItems(updatedItems);
     saveItemsToLocalStorage(updatedItems);
@@ -176,14 +200,7 @@ export const LostFoundProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const refreshItems = () => {
-    const now = new Date();
-    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-    
-    setItems(prevItems => {
-      const updatedItems = prevItems.filter(item => new Date(item.createdAt) > threeDaysAgo);
-      saveItemsToLocalStorage(updatedItems);
-      return updatedItems;
-    });
+    loadItems();
   };
 
   return (

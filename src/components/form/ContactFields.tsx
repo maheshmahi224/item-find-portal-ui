@@ -38,6 +38,9 @@ export function ContactFields({
           onChange={(e) => setContactInfo(e.target.value)}
           required
         />
+        <p className="text-xs text-muted-foreground mt-1">
+          Required so item owner can reach you
+        </p>
       </div>
     </>
   );

@@ -21,7 +21,15 @@ export function Layout() {
                 alt="Scient Institute of Technology" 
                 className="h-10 md:h-12" 
               />
-              <h1 className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-600 to-blue-600">findit@scient</h1>
+              <div>
+                <h1 className="text-xl md:text-2xl font-bold relative">
+                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-600 via-purple-600 to-blue-600">
+                    findit@scient
+                  </span>
+                  <span className="absolute -top-3 -right-5 text-xs text-gray-500 font-normal">v1.0</span>
+                </h1>
+                <p className="text-xs text-muted-foreground hidden md:block">Lost & Found Portal</p>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground hidden md:inline-block">

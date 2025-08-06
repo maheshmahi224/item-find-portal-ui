@@ -3,48 +3,8 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { FoundItem, ItemCategory } from "../types";
 import { toast } from "../components/ui/sonner";
 
-// Mock data for initial items
-const initialItems: FoundItem[] = [
-  {
-    id: "1",
-    name: "iPhone 13",
-    description: "Black iPhone 13 with a cracked screen protector",
-    location: "Library",
-    department: "Computer Science and Engineering",
-    founderName: "John Doe",
-    contactInfo: "john.doe@example.com",
-    imageUrl: "/placeholder.svg",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-    category: ItemCategory.Phone,
-    claimed: false,
-  },
-  {
-    id: "2",
-    name: "Blue Wallet",
-    description: "A blue leather wallet with some cash inside",
-    location: "Cafeteria",
-    department: "Electronics and Electrical Engineering",
-    founderName: "Jane Smith",
-    contactInfo: "jane.smith@example.com",
-    imageUrl: "/placeholder.svg",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48), // 2 days ago
-    category: ItemCategory.Wallet,
-    claimed: false,
-  },
-  {
-    id: "3",
-    name: "Casio Watch",
-    description: "Black Casio digital watch with silver trim",
-    location: "Gymnasium",
-    department: "H&S Department",
-    founderName: "Mike Johnson",
-    contactInfo: "mike.johnson@example.com",
-    imageUrl: "/placeholder.svg",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 60), // 2.5 days ago
-    category: ItemCategory.Watch,
-    claimed: false,
-  },
-];
+// No predefined items - start with empty array
+const initialItems: FoundItem[] = [];
 
 interface LostFoundContextType {
   items: FoundItem[];

@@ -13,14 +13,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 const ITEMS_PER_PAGE = 8;
 
 export function ItemsList() {
-  const { items, refreshItems } = useLostFound();
+  const { items, refreshItems, isLoading, error } = useLostFound();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [locationFilter, setLocationFilter] = useState<string>("all");
   const [showClaimed, setShowClaimed] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc"); // Default newest first
-  const [isLoading, setIsLoading] = useState(true);
+  const [localLoading, setLocalLoading] = useState(true);
 
   // Get unique locations from items
   const uniqueLocations = useMemo(() => {
@@ -30,11 +30,6 @@ export function ItemsList() {
 
   // Set up periodic refresh
   useEffect(() => {
-    // Initial load
-    setIsLoading(true);
-    refreshItems();
-    setIsLoading(false);
-    
     // Set up refresh interval for real-time updates
     const refreshInterval = setInterval(() => {
       refreshItems();
@@ -98,9 +93,9 @@ export function ItemsList() {
 
   // Handle manual refresh
   const handleManualRefresh = () => {
-    setIsLoading(true);
+    setLocalLoading(true);
     refreshItems();
-    setTimeout(() => setIsLoading(false), 500); // Add a slight delay for better UI feedback
+    setTimeout(() => setLocalLoading(false), 500); // Add a slight delay for better UI feedback
   };
 
   // Toggle sort direction
@@ -195,6 +190,16 @@ export function ItemsList() {
             </div>
           ))}
         </div>
+      ) : error ? (
+        <div className="text-center py-8">
+          <div className="text-red-500 mb-4">
+            <p className="text-lg font-semibold">Error loading items</p>
+            <p className="text-sm">{error}</p>
+          </div>
+          <Button onClick={refreshItems} variant="outline">
+            Try Again
+          </Button>
+        </div>
       ) : paginatedItems.length > 0 ? (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -267,7 +272,10 @@ export function ItemsList() {
           </div>
           <h3 className="text-xl font-medium mb-2">No items found</h3>
           <p className="text-muted-foreground max-w-md">
-            We couldn't find any items matching your search criteria. Try adjusting your filters or search query.
+            {items.length === 0 && !isLoading ? 
+              "No items have been reported yet. Be the first to report a lost or found item!" :
+              "We couldn't find any items matching your search criteria. Try adjusting your filters or search query."
+            }
           </p>
         </div>
       )}

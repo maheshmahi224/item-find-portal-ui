@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { FoundItem, ItemCategory } from "../types";
 import { toast } from "../components/ui/sonner";
+import { apiService } from "../services/api";
 
 // No predefined items - start with empty array
 const initialItems: FoundItem[] = [];
@@ -12,6 +13,8 @@ interface LostFoundContextType {
   claimItem: (id: string, claimantName: string) => void;
   deleteItem: (id: string) => void;
   refreshItems: () => void;
+  isLoading: boolean;
+  error: string | null;
 }
 
 const LostFoundContext = createContext<LostFoundContextType | undefined>(undefined);
@@ -26,6 +29,8 @@ export const useLostFound = () => {
 
 export const LostFoundProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<FoundItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Load items on component mount and set up polling for real-time sync
   useEffect(() => {
@@ -39,122 +44,98 @@ export const LostFoundProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => clearInterval(pollingInterval);
   }, []);
   
-  const loadItems = () => {
+  const loadItems = async () => {
     try {
-      const savedItems = localStorage.getItem("foundItems");
-      if (savedItems) {
-        const parsedItems = JSON.parse(savedItems).map((item: any) => ({
-          ...item,
-          createdAt: new Date(item.createdAt),
-          claimedAt: item.claimedAt ? new Date(item.claimedAt) : undefined,
-        }));
-        
-        // Sort items by creation date (newest first)
-        const sortedItems = parsedItems.sort((a: FoundItem, b: FoundItem) => 
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        
-        setItems(sortedItems);
-      } else {
-        const sortedInitialItems = [...initialItems].sort((a, b) => 
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        setItems(sortedInitialItems);
-        saveItemsToLocalStorage(sortedInitialItems);
-      }
-    } catch (error) {
-      console.error("Error loading items from localStorage:", error);
-      const sortedInitialItems = [...initialItems].sort((a, b) => 
+      setIsLoading(true);
+      setError(null);
+      
+      const response = await apiService.getItems({}, { limit: 100 });
+      const sortedItems = response.items.sort((a: FoundItem, b: FoundItem) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
-      setItems(sortedInitialItems);
-    }
-  };
-
-  // Auto-delete items older than 3 days
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
       
-      setItems(prevItems => {
-        const updatedItems = prevItems.filter(item => {
-          const shouldKeep = new Date(item.createdAt) > threeDaysAgo;
-          if (!shouldKeep && !item.claimed) {
-            toast("Item expired", {
-              description: `"${item.name}" has been automatically removed after 3 days.`
-            });
-          }
-          return shouldKeep;
-        });
-        
-        saveItemsToLocalStorage(updatedItems);
-        return updatedItems;
-      });
-    }, 60000); // Check every minute
-    
-    return () => clearInterval(interval);
-  }, []);
-
-  const saveItemsToLocalStorage = (itemsToSave: FoundItem[]) => {
-    try {
-      localStorage.setItem("foundItems", JSON.stringify(itemsToSave));
+      setItems(sortedItems);
     } catch (error) {
-      console.error("Error saving items to localStorage:", error);
+      console.error("Error loading items from API:", error);
+      
+      // Check if it's a network error (server not running)
+      const isNetworkError = error instanceof TypeError && error.message.includes('fetch');
+      const isConnectionError = error instanceof Error && (
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('NetworkError') ||
+        error.message.includes('ECONNREFUSED')
+      );
+      
+      if (isNetworkError || isConnectionError) {
+        // Server is not running or network issue - show empty state instead of error
+        setError(null);
+        setItems([]);
+      } else {
+        // Real API error - show error message
+        setError(error instanceof Error ? error.message : 'Failed to load items');
+        setItems([]);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const addItem = (item: Omit<FoundItem, "id" | "createdAt" | "claimed">) => {
-    const newItem: FoundItem = {
-      ...item,
-      id: crypto.randomUUID(),
-      createdAt: new Date(),
-      claimed: false,
-    };
-    
-    // Add new item at the beginning of the array (newest first)
-    const updatedItems = [newItem, ...items];
-    setItems(updatedItems);
-    saveItemsToLocalStorage(updatedItems);
-    
-    toast("Item added", {
-      description: `"${item.name}" has been added to the lost and found list.`
-    });
-  };
-
-  const claimItem = (id: string, claimantName: string) => {
-    const updatedItems = items.map(item => 
-      item.id === id 
-        ? { 
-            ...item, 
-            claimed: true, 
-            claimedBy: claimantName,
-            claimedAt: new Date() 
-          } 
-        : item
-    );
-    
-    setItems(updatedItems);
-    saveItemsToLocalStorage(updatedItems);
-    
-    const claimedItem = updatedItems.find(item => item.id === id);
-    if (claimedItem) {
-      toast("Item claimed", {
-        description: `"${claimedItem.name}" has been claimed by ${claimantName}.`
+  const addItem = async (item: Omit<FoundItem, "id" | "createdAt" | "claimed">) => {
+    try {
+      const newItem = await apiService.createItem(item);
+      
+      // Add new item at the beginning of the array (newest first)
+      setItems(prevItems => [newItem, ...prevItems]);
+      
+      toast("Item added", {
+        description: `"${item.name}" has been added to the lost and found list.`
+      });
+    } catch (error) {
+      console.error("Error adding item:", error);
+      toast("Error adding item", {
+        description: error instanceof Error ? error.message : 'Failed to add item'
       });
     }
   };
 
-  const deleteItem = (id: string) => {
-    const itemToDelete = items.find(item => item.id === id);
-    const updatedItems = items.filter(item => item.id !== id);
-    
-    setItems(updatedItems);
-    saveItemsToLocalStorage(updatedItems);
-    
-    if (itemToDelete) {
-      toast("Item deleted", {
-        description: `"${itemToDelete.name}" has been removed from the list.`
+  const claimItem = async (id: string, claimantName: string) => {
+    try {
+      const updatedItem = await apiService.claimItem(id, { claimantName });
+      
+      setItems(prevItems => 
+        prevItems.map(item => 
+          item.id === id ? updatedItem : item
+        )
+      );
+      
+      toast("Item claimed", {
+        description: `"${updatedItem.name}" has been claimed by ${claimantName}.`
+      });
+    } catch (error) {
+      console.error("Error claiming item:", error);
+      toast("Error claiming item", {
+        description: error instanceof Error ? error.message : 'Failed to claim item'
+      });
+    }
+  };
+
+  const deleteItem = async (id: string) => {
+    try {
+      const itemToDelete = items.find(item => item.id === id);
+      
+      await apiService.deleteItem(id);
+      
+      setItems(prevItems => prevItems.filter(item => item.id !== id));
+      
+      if (itemToDelete) {
+        toast("Item deleted", {
+          description: `"${itemToDelete.name}" has been removed from the list.`
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting item:", error);
+      toast("Error deleting item", {
+        description: error instanceof Error ? error.message : 'Failed to delete item'
       });
     }
   };
@@ -164,7 +145,15 @@ export const LostFoundProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   return (
-    <LostFoundContext.Provider value={{ items, addItem, claimItem, deleteItem, refreshItems }}>
+    <LostFoundContext.Provider value={{ 
+      items, 
+      addItem, 
+      claimItem, 
+      deleteItem, 
+      refreshItems, 
+      isLoading, 
+      error 
+    }}>
       {children}
     </LostFoundContext.Provider>
   );

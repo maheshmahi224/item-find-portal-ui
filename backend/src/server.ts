@@ -1,0 +1,97 @@
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import dotenv from 'dotenv';
+import { connectDatabase } from './utils/database';
+import { CleanupService } from './utils/cleanup';
+import { errorHandler, notFound } from './middleware/errorHandler';
+import itemsRouter from './routes/items';
+
+// Load environment variables
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
+
+// Security middleware
+app.use(helmet());
+
+// CORS configuration
+app.use(cors({
+  origin: CORS_ORIGIN,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Logging middleware
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined'));
+}
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
+  });
+});
+
+// API routes
+app.use('/api/items', itemsRouter);
+
+// 404 handler
+app.use(notFound);
+
+// Error handling middleware (must be last)
+app.use(errorHandler);
+
+// Start server
+const startServer = async () => {
+  try {
+    // Connect to database
+    await connectDatabase();
+    
+    // Start cleanup service
+    const cleanupService = CleanupService.getInstance();
+    cleanupService.startCleanup();
+    
+    // Start server
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📊 Environment: ${process.env.NODE_ENV}`);
+      console.log(`🔗 CORS Origin: ${CORS_ORIGIN}`);
+      console.log(`🗑️ Auto-deletion: ${process.env.AUTO_DELETE_HOURS || 72} hours`);
+      console.log(`🔄 Cleanup interval: ${process.env.CLEANUP_INTERVAL_HOURS || 1} hour(s)`);
+    });
+    
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err: Error) => {
+  console.error('❌ Unhandled Promise Rejection:', err);
+  process.exit(1);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err: Error) => {
+  console.error('❌ Uncaught Exception:', err);
+  process.exit(1);
+});
+
+// Start the server
+startServer(); 

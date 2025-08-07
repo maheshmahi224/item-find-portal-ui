@@ -1,4 +1,4 @@
-import { FoundItem, CreateItemRequest, ClaimItemRequest, ApiResponse, FilterParams, PaginationParams } from '../types';
+import { FoundItem } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
@@ -9,10 +9,10 @@ class ApiService {
     this.baseURL = API_BASE_URL;
   }
 
-  private async request<T>(
+  private async request(
     endpoint: string,
     options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
+  ): Promise<any> {
     const url = `${this.baseURL}${endpoint}`;
     
     const defaultOptions: RequestInit = {
@@ -65,8 +65,8 @@ class ApiService {
 
   // Get all items with filtering and pagination
   async getItems(
-    filters: FilterParams = {},
-    pagination: PaginationParams = {}
+    filters: any = {},
+    pagination: any = {}
   ): Promise<{ items: FoundItem[]; pagination: any }> {
     const params = new URLSearchParams();
     
@@ -93,17 +93,32 @@ class ApiService {
     return response.data!;
   }
 
-  // Create new item
-  async createItem(itemData: CreateItemRequest): Promise<FoundItem> {
-    const response = await this.request<FoundItem>('/items', {
-      method: 'POST',
-      body: JSON.stringify(itemData),
+  // Create a new item with image upload
+  async createItem(item: Omit<FoundItem, "id" | "createdAt" | "claimed">, imageFile: File): Promise<FoundItem> {
+    const formData = new FormData();
+    formData.append("image", imageFile);
+    formData.append("name", item.name);
+    formData.append("description", item.description || "");
+    formData.append("location", item.location);
+    formData.append("department", item.department);
+    formData.append("founderName", item.founderName);
+    formData.append("contactInfo", item.contactInfo);
+    formData.append("category", item.category);
+
+    const response = await fetch(`${this.baseURL}/items`, {
+      method: "POST",
+      body: formData,
     });
-    return response.data!;
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to add item");
+    }
+    return data.data;
   }
 
   // Claim an item
-  async claimItem(id: string, claimData: ClaimItemRequest): Promise<FoundItem> {
+  async claimItem(id: string, claimData: any): Promise<FoundItem> {
     const response = await this.request<FoundItem>(`/items/${id}/claim`, {
       method: 'PUT',
       body: JSON.stringify(claimData),
@@ -112,7 +127,7 @@ class ApiService {
   }
 
   // Update an item
-  async updateItem(id: string, itemData: Partial<CreateItemRequest>): Promise<FoundItem> {
+  async updateItem(id: string, itemData: any): Promise<FoundItem> {
     const response = await this.request<FoundItem>(`/items/${id}`, {
       method: 'PUT',
       body: JSON.stringify(itemData),

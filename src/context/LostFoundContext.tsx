@@ -9,7 +9,7 @@ const initialItems: FoundItem[] = [];
 
 interface LostFoundContextType {
   items: FoundItem[];
-  addItem: (item: Omit<FoundItem, "id" | "createdAt" | "claimed">) => void;
+  addItem: (item: Omit<FoundItem, "id" | "createdAt" | "claimed">, imageFile: File) => Promise<void>;
   claimItem: (id: string, claimantName: string) => void;
   deleteItem: (id: string) => void;
   refreshItems: () => void;
@@ -80,9 +80,9 @@ export const LostFoundProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const addItem = async (item: Omit<FoundItem, "id" | "createdAt" | "claimed">) => {
+  const addItem = async (item: Omit<FoundItem, "id" | "createdAt" | "claimed">, imageFile: File) => {
     try {
-      const newItem = await apiService.createItem(item);
+      const newItem = await apiService.createItem(item, imageFile);
       
       // Add new item at the beginning of the array (newest first)
       setItems(prevItems => [newItem, ...prevItems]);

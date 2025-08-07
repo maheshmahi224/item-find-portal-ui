@@ -99,18 +99,17 @@ export function AddItemForm() {
       return;
     }
 
-    const newItem: Omit<FoundItem, "id" | "createdAt" | "claimed"> = {
+    const newItem = {
       name: itemName,
       description: itemDescription,
       location,
       department,
       founderName,
       contactInfo,
-      imageUrl,
       category,
-    };
+    } as Omit<FoundItem, "id" | "createdAt" | "claimed">;
 
-    addItem(newItem);
+    addItem(newItem, image);
     resetForm();
   };
 

@@ -171,7 +171,7 @@ router.post('/', upload.single('image'), asyncHandler(async (req: Request, res: 
   fs.unlinkSync(filePath);
   fs.renameSync(filePath + '_compressed.jpg', filePath);
   // Store relative path for use by frontend
-  itemData.imageUrl = `/uploads/${file.filename}`;
+  itemData.imageUrl = `https://item-find-portal-ui-6.onrender.com/uploads/${file.filename}`;
 
 
   const newItem = new Item(itemData);

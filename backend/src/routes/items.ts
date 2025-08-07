@@ -28,7 +28,15 @@ const storage = multer.diskStorage({
     cb(null, uniqueSuffix + path.extname(file.originalname));
   }
 });
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed!'), false);
+    }
+    cb(null, true);
+  }
+});
 
 // GET /api/items - Get all items with filtering and pagination
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
@@ -147,21 +155,24 @@ router.post('/', upload.single('image'), asyncHandler(async (req: Request, res: 
 
   // Handle image upload and compress with sharp
   const file = req.file as any;
-  if (file) {
-    const filePath = path.join(__dirname, '../../uploads', file.filename);
-    // Compress and resize image using sharp
-    await sharp(filePath)
-      .resize({ width: 800, withoutEnlargement: true })
-      .jpeg({ quality: 70 })
-      .toFile(filePath + '_compressed.jpg');
-    // Replace original file with compressed version
-    fs.unlinkSync(filePath);
-    fs.renameSync(filePath + '_compressed.jpg', filePath);
-    // Store relative path for use by frontend
-    itemData.imageUrl = `/uploads/${file.filename}`;
-  } else {
-    itemData.imageUrl = '';
+  if (!file) {
+    return res.status(400).json({
+      success: false,
+      error: 'Image file is required. Please upload a photo.'
+    });
   }
+  const filePath = path.join(__dirname, '../../uploads', file.filename);
+  // Compress and resize image using sharp
+  await sharp(filePath)
+    .resize({ width: 800, withoutEnlargement: true })
+    .jpeg({ quality: 70 })
+    .toFile(filePath + '_compressed.jpg');
+  // Replace original file with compressed version
+  fs.unlinkSync(filePath);
+  fs.renameSync(filePath + '_compressed.jpg', filePath);
+  // Store relative path for use by frontend
+  itemData.imageUrl = `/uploads/${file.filename}`;
+
 
   const newItem = new Item(itemData);
   const savedItem = await newItem.save();

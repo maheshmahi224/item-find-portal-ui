@@ -1,10 +1,25 @@
 import express, { Request, Response } from 'express';
 import { Item } from '../models/Item';
-import { deleteImageFromS3 } from '../utils/s3';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+
 import { asyncHandler } from '../middleware/errorHandler';
 import { ApiResponse, CreateItemRequest, ClaimItemRequest, FilterParams, PaginationParams } from '../types';
 
 const router = express.Router();
+
+// Multer storage config for local uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, '../../uploads'));
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage });
 
 // GET /api/items - Get all items with filtering and pagination
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
@@ -109,9 +124,9 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   res.json(response);
 }));
 
-// POST /api/items - Create new item
-router.post('/', asyncHandler(async (req: Request, res: Response) => {
-  const itemData: CreateItemRequest = req.body;
+// POST /api/items - Create new item with image upload
+router.post('/', upload.single('image'), asyncHandler(async (req: Request, res: Response) => {
+  const itemData: any = req.body;
 
   // Validate required fields
   if (!itemData.name || !itemData.location || !itemData.department || !itemData.founderName) {
@@ -119,6 +134,14 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
       success: false,
       error: 'Missing required fields: name, location, department, founderName'
     });
+  }
+
+  // Handle image upload
+  if (req.file) {
+    // Store relative path for use by frontend
+    itemData.imageUrl = `/uploads/${req.file.filename}`;
+  } else {
+    itemData.imageUrl = '';
   }
 
   const newItem = new Item(itemData);
@@ -220,14 +243,15 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  // Delete image from S3 first (ignore error but log it)
+
+  // Delete image file from local uploads if it exists
   if (item.imageUrl) {
-    try {
-      await deleteImageFromS3(item.imageUrl);
-    } catch (err) {
-      console.error('Failed to delete image from S3:', err);
-      // Optionally, you can return an error here if strict consistency is needed
-    }
+    const imagePath = path.join(__dirname, '../../', item.imageUrl);
+    fs.unlink(imagePath, (err) => {
+      if (err && err.code !== 'ENOENT') {
+        console.error('Failed to delete image file:', err);
+      }
+    });
   }
 
   await Item.findByIdAndDelete(req.params.id);

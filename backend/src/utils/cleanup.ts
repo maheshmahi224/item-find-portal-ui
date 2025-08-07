@@ -1,5 +1,6 @@
 import { Item } from '../models/Item';
-import { deleteImageFromS3 } from './s3';
+import path from 'path';
+import fs from 'fs';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -56,14 +57,15 @@ export class CleanupService {
         claimed: false
       });
 
-      // Delete images from S3 for each expired item
+      // Delete local image files for each expired item
       for (const item of expiredItems) {
         if (item.imageUrl) {
-          try {
-            await deleteImageFromS3(item.imageUrl);
-          } catch (err) {
-            console.error(`Failed to delete image from S3 for item ${item._id}:`, err);
-          }
+          const imagePath = path.join(__dirname, '../../', item.imageUrl);
+          fs.unlink(imagePath, (err) => {
+            if (err && err.code !== 'ENOENT') {
+              console.error(`Failed to delete image file for item ${item._id}:`, err);
+            }
+          });
         }
       }
 

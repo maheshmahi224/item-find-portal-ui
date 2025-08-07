@@ -12,15 +12,15 @@ const router = express.Router();
 // Multer storage config for local uploads
 const storage = multer.diskStorage({
   destination: function (
-    req: express.Request,
-    file: Express.Multer.File,
+    req: any,
+    file: any,
     cb: (error: Error | null, destination: string) => void
   ) {
     cb(null, path.join(__dirname, '../../uploads'));
   },
   filename: function (
-    req: express.Request,
-    file: Express.Multer.File,
+    req: any,
+    file: any,
     cb: (error: Error | null, filename: string) => void
   ) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -145,7 +145,7 @@ router.post('/', upload.single('image'), asyncHandler(async (req: Request, res: 
   }
 
   // Handle image upload
-  const file = req.file as Express.Multer.File | undefined;
+  const file = req.file as any;
   if (file) {
     // Store relative path for use by frontend
     itemData.imageUrl = `/uploads/${file.filename}`;

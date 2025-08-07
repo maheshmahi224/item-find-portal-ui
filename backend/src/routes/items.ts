@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { Item } from '../models/Item';
 import multer from 'multer';
+import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
 
@@ -144,9 +145,18 @@ router.post('/', upload.single('image'), asyncHandler(async (req: Request, res: 
     });
   }
 
-  // Handle image upload
+  // Handle image upload and compress with sharp
   const file = req.file as any;
   if (file) {
+    const filePath = path.join(__dirname, '../../uploads', file.filename);
+    // Compress and resize image using sharp
+    await sharp(filePath)
+      .resize({ width: 800, withoutEnlargement: true })
+      .jpeg({ quality: 70 })
+      .toFile(filePath + '_compressed.jpg');
+    // Replace original file with compressed version
+    fs.unlinkSync(filePath);
+    fs.renameSync(filePath + '_compressed.jpg', filePath);
     // Store relative path for use by frontend
     itemData.imageUrl = `/uploads/${file.filename}`;
   } else {

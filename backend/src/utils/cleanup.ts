@@ -1,4 +1,5 @@
 import { Item } from '../models/Item';
+import { deleteImageFromS3 } from './s3';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -49,7 +50,24 @@ export class CleanupService {
       const cutoffDate = new Date();
       cutoffDate.setHours(cutoffDate.getHours() - AUTO_DELETE_HOURS);
 
-      // Find and delete expired unclaimed items
+      // Find expired unclaimed items
+      const expiredItems = await Item.find({
+        createdAt: { $lt: cutoffDate },
+        claimed: false
+      });
+
+      // Delete images from S3 for each expired item
+      for (const item of expiredItems) {
+        if (item.imageUrl) {
+          try {
+            await deleteImageFromS3(item.imageUrl);
+          } catch (err) {
+            console.error(`Failed to delete image from S3 for item ${item._id}:`, err);
+          }
+        }
+      }
+
+      // Delete expired items from MongoDB
       const result = await Item.deleteMany({
         createdAt: { $lt: cutoffDate },
         claimed: false

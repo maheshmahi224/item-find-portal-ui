@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { Item } from '../models/Item';
+import { deleteImageFromS3 } from '../utils/s3';
 import { asyncHandler } from '../middleware/errorHandler';
 import { ApiResponse, CreateItemRequest, ClaimItemRequest, FilterParams, PaginationParams } from '../types';
 
@@ -217,6 +218,16 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
       success: false,
       error: 'Item not found'
     });
+  }
+
+  // Delete image from S3 first (ignore error but log it)
+  if (item.imageUrl) {
+    try {
+      await deleteImageFromS3(item.imageUrl);
+    } catch (err) {
+      console.error('Failed to delete image from S3:', err);
+      // Optionally, you can return an error here if strict consistency is needed
+    }
   }
 
   await Item.findByIdAndDelete(req.params.id);

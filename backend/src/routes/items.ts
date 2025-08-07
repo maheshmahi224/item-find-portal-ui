@@ -30,7 +30,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ 
   storage,
-  fileFilter: (req, file, cb) => {
+  fileFilter: (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     if (!file.mimetype.startsWith('image/')) {
       return cb(new Error('Only image files are allowed!'), false);
     }

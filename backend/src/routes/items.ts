@@ -98,7 +98,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const response: ApiResponse = {
     success: true,
     data: {
-      items,
+      items: items.map(item => item.toJSON ? item.toJSON() : { ...item, id: item._id?.toString?.() ?? item.id }),
       pagination: {
         page: pageNum,
         limit: limitNum,

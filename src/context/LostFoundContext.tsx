@@ -125,7 +125,8 @@ export const LostFoundProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       
       await apiService.deleteItem(id);
       
-      setItems(prevItems => prevItems.filter(item => item.id !== id));
+      // Refresh items from backend after delete
+      await loadItems();
       
       if (itemToDelete) {
         toast("Item deleted", {

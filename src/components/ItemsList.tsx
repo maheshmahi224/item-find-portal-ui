@@ -28,15 +28,7 @@ export function ItemsList() {
     return ["all", ...Array.from(new Set(locations))];
   }, [items]);
 
-  // Set up periodic refresh
-  useEffect(() => {
-    // Set up refresh interval for real-time updates
-    const refreshInterval = setInterval(() => {
-      refreshItems();
-    }, 30000); // Refresh every 30 seconds
-    
-    return () => clearInterval(refreshInterval);
-  }, [refreshItems]);
+  // Periodic refresh handled centrally in LostFoundContext to avoid duplicate polling
 
   const filteredItems = useMemo(() => {
     return items.filter(item => {

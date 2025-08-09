@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { FoundItem, ItemCategory } from "../types";
 import { toast } from "../components/ui/sonner";
 import { apiService } from "../services/api";
@@ -32,21 +32,12 @@ export const LostFoundProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load items on component mount and set up polling for real-time sync
-  useEffect(() => {
-    loadItems();
-    
-    // Set up polling for real-time updates (every 30 seconds)
-    const pollingInterval = setInterval(() => {
-      loadItems();
-    }, 30000);
-    
-    return () => clearInterval(pollingInterval);
-  }, []);
-  
-  const loadItems = async () => {
+  const loadItems = useCallback(async (opts?: { background?: boolean }) => {
     try {
-      setIsLoading(true);
+      // Only show global loading spinner when not a background refresh
+      if (!opts?.background) {
+        setIsLoading(true);
+      }
       setError(null);
       
       const response = await apiService.getItems({}, { limit: 100 });
@@ -76,9 +67,22 @@ export const LostFoundProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setItems([]);
       }
     } finally {
-      setIsLoading(false);
+      if (!opts?.background) {
+        setIsLoading(false);
+      }
     }
-  };
+  }, []);
+
+  // Load items on component mount and set up polling for real-time sync
+  useEffect(() => {
+    // Initial load shows spinner
+    loadItems({ background: false });
+    // Set up polling for real-time updates (every 30 seconds) without spinner
+    const pollingInterval = setInterval(() => {
+      loadItems({ background: true });
+    }, 30000);
+    return () => clearInterval(pollingInterval);
+  }, [loadItems]);
 
   const addItem = async (item: Omit<FoundItem, "id" | "createdAt" | "claimed">, imageFile: File) => {
     try {
@@ -142,7 +146,7 @@ export const LostFoundProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const refreshItems = () => {
-    loadItems();
+    loadItems({ background: true });
   };
 
   return (

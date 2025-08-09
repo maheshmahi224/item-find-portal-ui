@@ -4,6 +4,7 @@ import multer from 'multer';
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
+import { promises as fsp } from 'fs';
 
 import { asyncHandler } from '../middleware/errorHandler';
 import { ApiResponse, CreateItemRequest, ClaimItemRequest, FilterParams, PaginationParams } from '../types';
@@ -161,17 +162,23 @@ router.post('/', upload.single('image'), asyncHandler(async (req: Request, res: 
       error: 'Image file is required. Please upload a photo.'
     });
   }
-  const filePath = path.join(__dirname, '../../uploads', file.filename);
-  // Compress and resize image using sharp
-  await sharp(filePath)
+  const uploadsDir = path.join(__dirname, '../../uploads');
+  const originalPath = path.join(uploadsDir, file.filename);
+  const baseName = path.parse(file.filename).name;
+  const webpName = `${baseName}.webp`;
+  const webpPath = path.join(uploadsDir, webpName);
+
+  // Process to WebP (smaller, faster) at reasonable quality
+  await sharp(originalPath)
     .resize({ width: 800, withoutEnlargement: true })
-    .jpeg({ quality: 70 })
-    .toFile(filePath + '_compressed.jpg');
-  // Replace original file with compressed version
-  fs.unlinkSync(filePath);
-  fs.renameSync(filePath + '_compressed.jpg', filePath);
-  // Store relative path for use by frontend
-  itemData.imageUrl = `https://item-find-portal-ui-6.onrender.com/uploads/${file.filename}`;
+    .webp({ quality: 80, smartSubsample: true })
+    .toFile(webpPath);
+
+  // Remove original to save space (optional; comment out if you want to keep originals)
+  try { await fsp.unlink(originalPath); } catch (e: any) { if (e.code !== 'ENOENT') throw e; }
+
+  // Store relative path for use by frontend and static server
+  itemData.imageUrl = `/uploads/${webpName}`;
 
 
   const newItem = new Item(itemData);
@@ -276,7 +283,9 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
 
   // Delete image file from local uploads if it exists
   if (item.imageUrl) {
-    const imagePath = path.join(__dirname, '../../', item.imageUrl);
+    // Ensure we don't pass an absolute path segment to path.join
+    const rel = item.imageUrl.startsWith('/') ? item.imageUrl.slice(1) : item.imageUrl;
+    const imagePath = path.join(__dirname, '../../', rel);
     fs.unlink(imagePath, (err) => {
       if (err && err.code !== 'ENOENT') {
         console.error('Failed to delete image file:', err);

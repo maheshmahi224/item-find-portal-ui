@@ -5,10 +5,22 @@ import { FoundItem } from '../types';
 const viteEnv = (import.meta as any)?.env || {};
 const nodeEnv = (globalThis as any)?.process?.env || {};
 
-const API_BASE_URL =
+let API_BASE_URL =
   viteEnv.VITE_API_BASE_URL ||
   nodeEnv.REACT_APP_BACKEND_URL ||
   'http://localhost:5000/api';
+
+// Runtime safety net: if bundle fell back to localhost but we're deployed,
+// override to the known Render URL. This avoids "Failed to fetch" when envs are missing/cached.
+try {
+  const isBrowser = typeof window !== 'undefined' && !!window.location;
+  const isLocalhostBase = /localhost:\d+\/api$/i.test(API_BASE_URL);
+  const isRunningLocalhost = isBrowser && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+  if (isBrowser && isLocalhostBase && !isRunningLocalhost) {
+    // Point to Render backend
+    API_BASE_URL = 'https://item-find-portal-ui-6.onrender.com/api';
+  }
+} catch {}
 
 // Derive the public origin (without the '/api' suffix) for static assets like '/uploads/...'
 // Allows frontend and backend on different domains while keeping DB-stored relative image URLs working.
@@ -16,6 +28,15 @@ const PUBLIC_API_ORIGIN =
   (viteEnv.VITE_PUBLIC_API_ORIGIN as string) ||
   nodeEnv.REACT_APP_PUBLIC_API_ORIGIN ||
   API_BASE_URL.replace(/\/?api\/?$/, '');
+
+// One-time log to help verify in production what base URL is used.
+if (typeof window !== 'undefined' && !(window as any).__API_BASE_LOGGED__) {
+  try {
+    (window as any).__API_BASE_LOGGED__ = true;
+    // eslint-disable-next-line no-console
+    console.info('[API] Using base URL:', API_BASE_URL, 'public origin:', PUBLIC_API_ORIGIN);
+  } catch {}
+}
 
 class ApiService {
   private baseURL: string;

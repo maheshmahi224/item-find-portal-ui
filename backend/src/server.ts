@@ -20,7 +20,9 @@ sharp.cache({ files: 0, items: 512, memory: 256 });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
+// Support multiple origins (comma-separated), fallback to localhost
+const RAW_CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
+const ALLOWED_ORIGINS = RAW_CORS_ORIGIN.split(',').map(o => o.trim()).filter(Boolean);
 
 // Security middleware
 // Allow cross-origin resource loading for images by disabling CORP globally;
@@ -29,7 +31,12 @@ app.use(helmet({ crossOriginResourcePolicy: false }));
 
 // CORS configuration
 app.use(cors({
-  origin: CORS_ORIGIN,
+  origin: (origin, callback) => {
+    // Allow same-origin or non-browser requests (no Origin header)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -54,6 +61,11 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV
   });
+});
+
+// Friendly root: redirect to health to avoid 404 confusion
+app.get('/', (_req, res) => {
+  res.redirect('/health');
 });
 
 // Serve uploads folder as static
@@ -98,7 +110,7 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV}`);
-      console.log(`🔗 CORS Origin: ${CORS_ORIGIN}`);
+      console.log(`🔗 CORS Origin(s): ${ALLOWED_ORIGINS.join(', ') || 'N/A'}`);
       console.log(`🗑️ Auto-deletion: ${process.env.AUTO_DELETE_HOURS || 72} hours`);
       console.log(`🔄 Cleanup interval: ${process.env.CLEANUP_INTERVAL_HOURS || 1} hour(s)`);
     });

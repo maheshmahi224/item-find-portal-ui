@@ -5,32 +5,17 @@ import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
 import { promises as fsp } from 'fs';
+import { cloudinary, isConfigured as isCloudinaryConfigured } from '../utils/cloudinary';
+import type { UploadApiResponse, UploadApiErrorResponse } from 'cloudinary';
 
 import { asyncHandler } from '../middleware/errorHandler';
 import { ApiResponse, CreateItemRequest, ClaimItemRequest, FilterParams, PaginationParams } from '../types';
 
 const router = express.Router();
 
-// Multer storage config for local uploads
-const storage = multer.diskStorage({
-  destination: function (
-    req: any,
-    file: any,
-    cb: (error: Error | null, destination: string) => void
-  ) {
-    cb(null, path.join(__dirname, '../../uploads'));
-  },
-  filename: function (
-    req: any,
-    file: any,
-    cb: (error: Error | null, filename: string) => void
-  ) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Multer memory storage (works for Cloudinary and local fallback)
 const upload = multer({ 
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter: (req: Request, file: any, cb: any) => {
     if (!file.mimetype.startsWith('image/')) {
       return cb(new Error('Only image files are allowed!'), false);
@@ -162,23 +147,39 @@ router.post('/', upload.single('image'), asyncHandler(async (req: Request, res: 
       error: 'Image file is required. Please upload a photo.'
     });
   }
-  const uploadsDir = path.join(__dirname, '../../uploads');
-  const originalPath = path.join(uploadsDir, file.filename);
-  const baseName = path.parse(file.filename).name;
-  const webpName = `${baseName}.webp`;
-  const webpPath = path.join(uploadsDir, webpName);
-
-  // Process to WebP (smaller, faster) at reasonable quality
-  await sharp(originalPath)
+  // Process to WebP in memory
+  const processedBuffer = await sharp(file.buffer)
     .resize({ width: 800, withoutEnlargement: true })
     .webp({ quality: 80, smartSubsample: true })
-    .toFile(webpPath);
+    .toBuffer();
 
-  // Remove original to save space (optional; comment out if you want to keep originals)
-  try { await fsp.unlink(originalPath); } catch (e: any) { if (e.code !== 'ENOENT') throw e; }
-
-  // Store relative path for use by frontend and static server
-  itemData.imageUrl = `/uploads/${webpName}`;
+  if (isCloudinaryConfigured) {
+    // Upload to Cloudinary via upload_stream
+    const result: UploadApiResponse = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'item-find-portal/uploads',
+          resource_type: 'image',
+          format: 'webp',
+        },
+        (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
+          if (error) return reject(error);
+          resolve(result as UploadApiResponse);
+        }
+      );
+      uploadStream.end(processedBuffer);
+    });
+    itemData.imageUrl = result.secure_url; // absolute URL
+  } else {
+    // Fallback: save to local uploads directory
+    const uploadsDir = path.join(__dirname, '../../uploads');
+    try { await fsp.mkdir(uploadsDir, { recursive: true }); } catch {}
+    const uniqueBase = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const webpName = `${uniqueBase}.webp`;
+    const webpPath = path.join(uploadsDir, webpName);
+    await fsp.writeFile(webpPath, processedBuffer);
+    itemData.imageUrl = `/uploads/${webpName}`; // relative URL
+  }
 
 
   const newItem = new Item(itemData);
@@ -281,14 +282,13 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   }
 
 
-  // Delete image file from local uploads if it exists
-  if (item.imageUrl) {
-    // Ensure we don't pass an absolute path segment to path.join
-    const rel = item.imageUrl.startsWith('/') ? item.imageUrl.slice(1) : item.imageUrl;
+  // Delete image file from local uploads only (skip Cloudinary URLs)
+  if (item.imageUrl && item.imageUrl.startsWith('/uploads/')) {
+    const rel = item.imageUrl.slice(1); // remove leading '/'
     const imagePath = path.join(__dirname, '../../', rel);
     fs.unlink(imagePath, (err) => {
-      if (err && err.code !== 'ENOENT') {
-        console.error('Failed to delete image file:', err);
+      if (err && (err as any).code !== 'ENOENT') {
+        console.error('Failed to delete local image file:', err);
       }
     });
   }

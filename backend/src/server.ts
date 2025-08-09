@@ -4,6 +4,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import os from 'os';
+import sharp from 'sharp';
 import { connectDatabase } from './utils/database';
 import { CleanupService } from './utils/cleanup';
 import { errorHandler, notFound } from './middleware/errorHandler';
@@ -12,12 +14,18 @@ import itemsRouter from './routes/items';
 // Load environment variables
 dotenv.config();
 
+// Tune sharp for better performance and reduced resource usage
+sharp.concurrency(Math.max(1, Math.min(os.cpus().length, 4)));
+sharp.cache({ files: 0, items: 512, memory: 256 });
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
 
 // Security middleware
-app.use(helmet());
+// Allow cross-origin resource loading for images by disabling CORP globally;
+// we explicitly set CORP per static route below.
+app.use(helmet({ crossOriginResourcePolicy: false }));
 
 // CORS configuration
 app.use(cors({
@@ -49,7 +57,23 @@ app.get('/health', (req, res) => {
 });
 
 // Serve uploads folder as static
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use(
+  '/uploads',
+  express.static(path.join(__dirname, '../uploads'), {
+    etag: true,
+    lastModified: true,
+    cacheControl: true,
+    maxAge: '365d',
+    setHeaders: (res, filePath) => {
+      if (/\.(?:png|jpg|jpeg|webp|avif)$/i.test(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        // Allow images to be embedded cross-origin (frontend on a different host)
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+      }
+    },
+  })
+);
 
 // API routes
 app.use('/api/items', itemsRouter);

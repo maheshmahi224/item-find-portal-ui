@@ -19,6 +19,7 @@ interface ItemCardProps {
 
 export function ItemCard({ item }: ItemCardProps) {
   const [claimantName, setClaimantName] = useState("");
+  const [imgError, setImgError] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { claimItem, deleteItem } = useLostFound();
 
@@ -127,27 +128,33 @@ export function ItemCard({ item }: ItemCardProps) {
   return (
     <Card className={`overflow-hidden card-hover h-full flex flex-col ${cardOpacityClass} transition-opacity`}>
       <div className="aspect-square overflow-hidden relative">
-        <img 
-          src={resolveImageUrl(item.imageUrl)} 
-          alt={item.name} 
-          className="w-full h-full object-cover"
-          loading="lazy"
-          crossOrigin="anonymous"
-          onError={(e) => {
-            const img = e.target as HTMLImageElement;
-            const current = img.getAttribute('src') || '';
-            // Try switching to .webp for legacy records that still point to .jpg/.jpeg/.png
-            if (/\.(jpg|jpeg|png)(\?.*)?$/i.test(current)) {
-              const webpSrc = current.replace(/\.(jpg|jpeg|png)(\?.*)?$/i, '.webp$2');
-              img.onerror = () => {
-                img.src = '/placeholder.svg';
-              };
-              img.src = webpSrc;
-              return;
-            }
-            img.src = '/placeholder.svg';
-          }}
-        />
+        {!imgError ? (
+          <img
+            src={resolveImageUrl(item.imageUrl)}
+            alt={item.name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            crossOrigin="anonymous"
+            onError={(e) => {
+              const img = e.target as HTMLImageElement;
+              const current = img.getAttribute('src') || '';
+              // Try switching to .webp for legacy records that still point to .jpg/.jpeg/.png
+              if (/\.(jpg|jpeg|png)(\?.*)?$/i.test(current)) {
+                const webpSrc = current.replace(/\.(jpg|jpeg|png)(\?.*)?$/i, '.webp$2');
+                img.onerror = () => {
+                  setImgError(true);
+                };
+                img.src = webpSrc;
+                return;
+              }
+              setImgError(true);
+            }}
+          />
+        ) : (
+          <div className="w-full h-full bg-muted/30 flex items-center justify-center text-muted-foreground text-xs select-none">
+            No image
+          </div>
+        )}
         {item.claimed && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
             <span className="text-white font-bold text-lg uppercase tracking-wider">Claimed</span>

@@ -134,10 +134,11 @@ export function ItemCard({ item }: ItemCardProps) {
             alt={item.name}
             className="w-full h-full object-cover"
             loading="lazy"
-            crossOrigin="anonymous"
             onError={(e) => {
               const img = e.target as HTMLImageElement;
               const current = img.getAttribute('src') || '';
+              // Log failing URL for diagnosis
+              try { console.error('[ImageError] Failed to load image:', current); } catch {}
               // Try switching to .webp for legacy records that still point to .jpg/.jpeg/.png
               if (/\.(jpg|jpeg|png)(\?.*)?$/i.test(current)) {
                 const webpSrc = current.replace(/\.(jpg|jpeg|png)(\?.*)?$/i, '.webp$2');

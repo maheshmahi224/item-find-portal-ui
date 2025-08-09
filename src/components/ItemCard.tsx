@@ -11,6 +11,7 @@ import { Clock, Trash, Share } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
+import { resolveImageUrl } from "@/services/api";
 
 interface ItemCardProps {
   item: FoundItem;
@@ -127,7 +128,7 @@ export function ItemCard({ item }: ItemCardProps) {
     <Card className={`overflow-hidden card-hover h-full flex flex-col ${cardOpacityClass} transition-opacity`}>
       <div className="aspect-square overflow-hidden relative">
         <img 
-          src={item.imageUrl} 
+          src={resolveImageUrl(item.imageUrl)} 
           alt={item.name} 
           className="w-full h-full object-cover"
           loading="lazy"

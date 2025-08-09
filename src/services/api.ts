@@ -1,6 +1,21 @@
 import { FoundItem } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+// Read env from Vite (VITE_*) or CRA-style (REACT_APP_*). CRA fallback helps when the
+// build environment still provides REACT_APP_BACKEND_URL.
+const viteEnv = (import.meta as any)?.env || {};
+const nodeEnv = (globalThis as any)?.process?.env || {};
+
+const API_BASE_URL =
+  viteEnv.VITE_API_BASE_URL ||
+  nodeEnv.REACT_APP_BACKEND_URL ||
+  'http://localhost:5000/api';
+
+// Derive the public origin (without the '/api' suffix) for static assets like '/uploads/...'
+// Allows frontend and backend on different domains while keeping DB-stored relative image URLs working.
+const PUBLIC_API_ORIGIN =
+  (viteEnv.VITE_PUBLIC_API_ORIGIN as string) ||
+  nodeEnv.REACT_APP_PUBLIC_API_ORIGIN ||
+  API_BASE_URL.replace(/\/?api\/?$/, '');
 
 class ApiService {
   private baseURL: string;
@@ -9,10 +24,10 @@ class ApiService {
     this.baseURL = API_BASE_URL;
   }
 
-  private async request(
+  private async request<T = any>(
     endpoint: string,
     options: RequestInit = {}
-  ): Promise<any> {
+  ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     
     const defaultOptions: RequestInit = {
@@ -84,13 +99,13 @@ class ApiService {
     if (pagination.sortOrder) params.append('sortOrder', pagination.sortOrder);
 
     const response = await this.request<{ items: FoundItem[]; pagination: any }>(`/items?${params.toString()}`);
-    return response.data!;
+    return response;
   }
 
   // Get single item by ID
   async getItem(id: string): Promise<FoundItem> {
     const response = await this.request<FoundItem>(`/items/${id}`);
-    return response.data!;
+    return response;
   }
 
   // Create a new item with image upload
@@ -123,7 +138,7 @@ class ApiService {
       method: 'PUT',
       body: JSON.stringify(claimData),
     });
-    return response.data!;
+    return response;
   }
 
   // Update an item
@@ -132,7 +147,7 @@ class ApiService {
       method: 'PUT',
       body: JSON.stringify(itemData),
     });
-    return response.data!;
+    return response;
   }
 
   // Delete an item
@@ -145,7 +160,7 @@ class ApiService {
   // Get statistics
   async getStats(): Promise<any> {
     const response = await this.request('/items/stats/overview');
-    return response.data!;
+    return response;
   }
 
   // Health check
@@ -160,3 +175,20 @@ class ApiService {
 }
 
 export const apiService = new ApiService(); 
+
+// Resolve image URL utility. If the value already looks absolute (http/https), return as-is.
+// If it starts with '/uploads', prefix with backend public origin so images load cross-origin.
+// Also tolerates values missing the leading slash (e.g., 'uploads/..').
+export function resolveImageUrl(pathOrUrl: string | undefined | null): string {
+  if (!pathOrUrl) return '';
+  const url = String(pathOrUrl);
+  if (/^https?:\/\//i.test(url)) return url; // already absolute
+
+  // Normalize leading slash
+  const normalized = url.startsWith('/') ? url : `/${url}`;
+
+  if (normalized.startsWith('/uploads')) {
+    return `${PUBLIC_API_ORIGIN}${normalized}`;
+  }
+  return normalized;
+}

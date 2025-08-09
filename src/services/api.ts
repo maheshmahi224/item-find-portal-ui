@@ -119,8 +119,11 @@ class ApiService {
     if (pagination.sortBy) params.append('sortBy', pagination.sortBy);
     if (pagination.sortOrder) params.append('sortOrder', pagination.sortOrder);
 
-    const response = await this.request<{ items: FoundItem[]; pagination: any }>(`/items?${params.toString()}`);
-    return response;
+    // Backend returns an envelope: { success, data: { items, pagination }, ... }
+    const response = await this.request<{ success: boolean; data: { items: FoundItem[]; pagination: any } }>(
+      `/items?${params.toString()}`
+    );
+    return response.data;
   }
 
   // Get single item by ID

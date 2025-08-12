@@ -1,140 +1,54 @@
-import { Item } from '../models/Item';
-import path from 'path';
 import fs from 'fs';
-import dotenv from 'dotenv';
+import path from 'path';
+import { Item } from '../models/Item';
 
-dotenv.config();
+const AUTO_DELETE_HOURS = parseInt(process.env.AUTO_DELETE_HOURS || '72', 10);
+const CLEANUP_INTERVAL_HOURS = parseInt(process.env.CLEANUP_INTERVAL_HOURS || '1', 10);
 
-const AUTO_DELETE_HOURS = parseInt(process.env.AUTO_DELETE_HOURS || '72');
-const CLEANUP_INTERVAL_HOURS = parseInt(process.env.CLEANUP_INTERVAL_HOURS || '1');
+const performCleanup = async (): Promise<void> => {
+  try {
+    const cutoffDate = new Date();
+    cutoffDate.setHours(cutoffDate.getHours() - AUTO_DELETE_HOURS);
 
-export class CleanupService {
-  private static instance: CleanupService;
-  private intervalId: NodeJS.Timeout | null = null;
+    // Find unclaimed items older than the cutoff date
+    const expiredItems = await Item.find({
+      claimed: false,
+      createdAt: { $lt: cutoffDate },
+    });
 
-  private constructor() {}
-
-  public static getInstance(): CleanupService {
-    if (!CleanupService.instance) {
-      CleanupService.instance = new CleanupService();
-    }
-    return CleanupService.instance;
-  }
-
-  public startCleanup(): void {
-    if (this.intervalId) {
-      console.log('⚠️ Cleanup service is already running');
+    if (expiredItems.length === 0) {
+      console.log('Cleanup service ran: No expired items to delete.');
       return;
     }
 
-    console.log(`🔄 Starting cleanup service - checking every ${CLEANUP_INTERVAL_HOURS} hour(s)`);
-    
-    // Run initial cleanup
-    this.performCleanup();
-    
-    // Set up interval for periodic cleanup
-    this.intervalId = setInterval(() => {
-      this.performCleanup();
-    }, CLEANUP_INTERVAL_HOURS * 60 * 60 * 1000); // Convert hours to milliseconds
-  }
+    console.log(`Cleanup service: Found ${expiredItems.length} expired items to delete.`);
 
-  public stopCleanup(): void {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-      console.log('🛑 Cleanup service stopped');
-    }
-  }
-
-  private async performCleanup(): Promise<void> {
-    try {
-      const cutoffDate = new Date();
-      cutoffDate.setHours(cutoffDate.getHours() - AUTO_DELETE_HOURS);
-
-      // Find expired unclaimed items
-      const expiredItems = await Item.find({
-        createdAt: { $lt: cutoffDate },
-        claimed: false
-      });
-
-      // Delete local image files for each expired item
-      for (const item of expiredItems) {
-        const url = item.imageUrl || '';
-        // Skip external URLs (e.g., Cloudinary)
-        if (!url || /^https?:\/\//i.test(url)) continue;
-        // Our app stores '/uploads/<filename>' or 'uploads/<filename>'
-        const filename = path.basename(url);
-        if (!filename) continue;
-        const imagePath = path.join(__dirname, '../uploads', filename);
-        fs.unlink(imagePath, (err) => {
-          if (err && err.code !== 'ENOENT') {
-            console.error(`Failed to delete image file for item ${item._id}:`, err);
-          }
-        });
+    for (const item of expiredItems) {
+      // Delete local image file if it exists
+      if (item.imageUrl && item.imageUrl.startsWith('/uploads/')) {
+        const filename = path.basename(item.imageUrl);
+        const imagePath = path.join(__dirname, '..', '..', 'uploads', filename);
+        if (fs.existsSync(imagePath)) {
+          fs.unlink(imagePath, (err) => {
+            if (err) {
+              console.error(`Failed to delete image: ${imagePath}`, err);
+            }
+          });
+        }
       }
-
-      // Delete expired items from MongoDB
-      const result = await Item.deleteMany({
-        createdAt: { $lt: cutoffDate },
-        claimed: false
-      });
-
-      if (result.deletedCount > 0) {
-        console.log(`🗑️ Cleaned up ${result.deletedCount} expired items (older than ${AUTO_DELETE_HOURS} hours)`);
-      } else {
-        console.log(`✅ No expired items found to clean up`);
-      }
-
-      // Also check for items that will expire soon (within 1 hour) and log them
-      const warningDate = new Date();
-      warningDate.setHours(warningDate.getHours() - (AUTO_DELETE_HOURS - 1));
-
-      const expiringItems = await Item.find({
-        createdAt: { $lt: warningDate },
-        claimed: false
-      }).select('name createdAt');
-
-      if (expiringItems.length > 0) {
-        console.log(`⚠️ ${expiringItems.length} items will expire soon:`);
-        expiringItems.forEach(item => {
-          const hoursLeft = Math.round((AUTO_DELETE_HOURS * 60 * 60 * 1000 - (Date.now() - item.createdAt.getTime())) / (60 * 60 * 1000));
-          console.log(`   - "${item.name}" (expires in ~${hoursLeft} hours)`);
-        });
-      }
-
-    } catch (error) {
-      console.error('❌ Error during cleanup:', error);
+      // Delete the item from the database
+      await Item.findByIdAndDelete(item._id);
     }
+
+    console.log(`Cleanup service: Successfully deleted ${expiredItems.length} expired items.`);
+  } catch (error) {
+    console.error('Error during cleanup service execution:', error);
   }
+};
 
-  public async getExpiringItems(): Promise<any[]> {
-    try {
-      const warningDate = new Date();
-      warningDate.setHours(warningDate.getHours() - (AUTO_DELETE_HOURS - 1));
-
-      return await Item.find({
-        createdAt: { $lt: warningDate },
-        claimed: false
-      }).select('name createdAt category location');
-    } catch (error) {
-      console.error('❌ Error getting expiring items:', error);
-      return [];
-    }
-  }
-
-  public async getStats(): Promise<{ total: number; claimed: number; unclaimed: number; expiring: number }> {
-    try {
-      const [total, claimed, unclaimed, expiring] = await Promise.all([
-        Item.countDocuments(),
-        Item.countDocuments({ claimed: true }),
-        Item.countDocuments({ claimed: false }),
-        this.getExpiringItems().then(items => items.length)
-      ]);
-
-      return { total, claimed, unclaimed, expiring };
-    } catch (error) {
-      console.error('❌ Error getting stats:', error);
-      return { total: 0, claimed: 0, unclaimed: 0, expiring: 0 };
-    }
-  }
-} 
+export const startCleanupService = (): void => {
+  console.log(`Cleanup service initiated. Will run every ${CLEANUP_INTERVAL_HOURS} hour(s).`);
+  // Run once on startup, then set interval
+  performCleanup();
+  setInterval(performCleanup, CLEANUP_INTERVAL_HOURS * 60 * 60 * 1000);
+};

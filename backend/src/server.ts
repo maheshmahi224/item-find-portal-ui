@@ -6,26 +6,31 @@ import helmet from 'helmet';
 import { connectDB } from './utils/database';
 import { startCleanupService } from './utils/cleanup';
 import itemRoutes from './routes/items';
-import { Item } from './models/Item'; // Import Item model for index sync
+import { Item } from './models/Item';
 
-// Load environment variables
+// --- Environment Variable Loading ---
+console.log('[Server] Loading environment variables...');
 dotenv.config();
+console.log('[Server] Environment variables loaded.');
+
+// Critical check for MONGO_URI
+if (!process.env.MONGO_URI) {
+  console.error('[Server] FATAL ERROR: MONGO_URI is not defined in the .env file.');
+  process.exit(1);
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // --- CORS Configuration ---
 const allowedOrigins = [
-  'http://localhost:5173',             // Local dev frontend
-  'https://finditatscient.vercel.app'  // Your deployed frontend
+  'http://localhost:5173',
+  'https://finditatscient.vercel.app'
 ];
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    // Allow if the origin is in our list or is a Vercel preview deployment
-    if (allowedOrigins.includes(origin) || /--maheshmahi224\.vercel\.app$/.test(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || /--maheshmahi224\.vercel\.app$/.test(origin)) {
       callback(null, true);
     } else {
       callback(new Error(`Origin '${origin}' not allowed by CORS`));
@@ -36,12 +41,8 @@ const corsOptions: cors.CorsOptions = {
 
 app.use(cors(corsOptions));
 
-// --- Security Middleware ---
-app.use(helmet({
-  crossOriginResourcePolicy: false, // Allow images to be loaded cross-origin
-}));
-
-// --- Body Parsers ---
+// --- Middleware ---
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -53,21 +54,25 @@ app.use('/api/items', itemRoutes);
 
 // --- Server Initialization ---
 const startServer = async () => {
+  console.log('[Server] Initializing...');
   try {
+    console.log('[Server] Connecting to database...');
     await connectDB();
-    console.log('MongoDB connected successfully.');
+    console.log('[Server] ✅ MongoDB connected successfully.');
 
-    // Ensure MongoDB indexes are created, including the TTL index for auto-deletion
+    console.log('[Server] Ensuring MongoDB indexes...');
     await Item.ensureIndexes();
-    console.log('MongoDB indexes ensured.');
+    console.log('[Server] ✅ MongoDB indexes ensured.');
 
+    console.log('[Server] Starting cleanup service...');
     startCleanupService();
+    console.log('[Server] ✅ Cleanup service started.');
 
     app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+      console.log(`[Server] ✅ Server is running on port ${PORT}`);
     });
   } catch (error) {
-    console.error('Failed to start the server:', error);
+    console.error('[Server] ❌ Failed to start the server:', error);
     process.exit(1);
   }
 };

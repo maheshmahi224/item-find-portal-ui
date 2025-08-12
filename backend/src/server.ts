@@ -10,6 +10,7 @@ import { connectDatabase } from './utils/database';
 import { CleanupService } from './utils/cleanup';
 import { errorHandler, notFound } from './middleware/errorHandler';
 import itemsRouter from './routes/items';
+import { Item } from './models/Item';
 
 // Load environment variables
 dotenv.config();
@@ -35,6 +36,10 @@ app.use(cors({
     // Allow same-origin or non-browser requests (no Origin header)
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    // Allow any vercel.app domain for frontend deployments
+    if (origin && origin.includes('.vercel.app')) return callback(null, true);
+    // Allow any localhost for development
+    if (origin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return callback(null, true);
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true,
@@ -105,7 +110,15 @@ const startServer = async () => {
     // Start cleanup service
     const cleanupService = CleanupService.getInstance();
     cleanupService.startCleanup();
-    
+
+    // Ensure indexes are in place (including TTL index for auto-delete)
+    try {
+      await Item.syncIndexes();
+      console.log('✅ MongoDB indexes synced (including TTL for auto-delete)');
+    } catch (e) {
+      console.error('⚠️ Failed to sync MongoDB indexes:', e);
+    }
+
     // Start server
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);

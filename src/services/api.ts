@@ -17,8 +17,16 @@ try {
   const isLocalhostBase = /localhost:\d+\/api$/i.test(API_BASE_URL);
   const isRunningLocalhost = isBrowser && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
   if (isBrowser && isLocalhostBase && !isRunningLocalhost) {
-    // Point to Render backend
-    API_BASE_URL = 'https://item-find-portal-ui-6.onrender.com/api';
+    // Dynamically determine backend URL from current domain
+    const currentOrigin = window.location.origin;
+    // Try to infer backend URL - could be same domain or a known pattern
+    if (currentOrigin.includes('vercel.app')) {
+      // For Vercel deployments, try the Render backend
+      API_BASE_URL = 'https://item-find-portal-ui-6.onrender.com/api';
+    } else {
+      // For other deployments, assume backend is on same origin
+      API_BASE_URL = `${currentOrigin}/api`;
+    }
   }
 } catch {}
 
@@ -203,10 +211,14 @@ export const apiService = new ApiService();
 // Resolve image URL utility. If the value already looks absolute (http/https), return as-is.
 // If it starts with '/uploads', prefix with backend public origin so images load cross-origin.
 // Also tolerates values missing the leading slash (e.g., 'uploads/..').
+// Handles extension conversion from legacy .jpg/.png to .webp format.
 export function resolveImageUrl(pathOrUrl: string | undefined | null): string {
   if (!pathOrUrl) return '';
-  const url = String(pathOrUrl);
-  if (/^https?:\/\//i.test(url)) return url; // already absolute
+  let url = String(pathOrUrl);
+  if (/^https?:\/\//i.test(url)) return url; // already absolute (e.g., Cloudinary)
+
+  // Convert legacy extensions to webp since backend now saves as webp
+  url = url.replace(/\.(jpg|jpeg|png)(\?.*)?$/i, '.webp$2');
 
   // Normalize leading slash
   const normalized = url.startsWith('/') ? url : `/${url}`;

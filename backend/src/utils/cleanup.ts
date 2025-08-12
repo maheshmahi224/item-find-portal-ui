@@ -59,14 +59,18 @@ export class CleanupService {
 
       // Delete local image files for each expired item
       for (const item of expiredItems) {
-        if (item.imageUrl) {
-          const imagePath = path.join(__dirname, '../../', item.imageUrl);
-          fs.unlink(imagePath, (err) => {
-            if (err && err.code !== 'ENOENT') {
-              console.error(`Failed to delete image file for item ${item._id}:`, err);
-            }
-          });
-        }
+        const url = item.imageUrl || '';
+        // Skip external URLs (e.g., Cloudinary)
+        if (!url || /^https?:\/\//i.test(url)) continue;
+        // Our app stores '/uploads/<filename>' or 'uploads/<filename>'
+        const filename = path.basename(url);
+        if (!filename) continue;
+        const imagePath = path.join(__dirname, '../uploads', filename);
+        fs.unlink(imagePath, (err) => {
+          if (err && err.code !== 'ENOENT') {
+            console.error(`Failed to delete image file for item ${item._id}:`, err);
+          }
+        });
       }
 
       // Delete expired items from MongoDB

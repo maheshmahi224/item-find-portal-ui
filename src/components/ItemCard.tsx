@@ -327,6 +327,14 @@ export function ItemCard({ item }: ItemCardProps) {
                 </div>
               </PopoverContent>
             </Popover>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => deleteItem(item.id)}
+              className="h-8"
+            >
+              <Trash className="h-4 w-4" />
+            </Button>
             <span className="text-xs text-muted-foreground font-medium">CLAIMED</span>
           </div>
         )}
